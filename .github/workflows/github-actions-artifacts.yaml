@@ -1,0 +1,65 @@
+name: CI
+
+on: 
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Create build files
+        run: |
+          mkdir -p dist
+          echo "<h1>Hello World</h1>" > dist/index.html
+          echo "console.log('Hello');" > dist/app.js
+          echo "Build completed at $(date)" > dist/build-info.txt
+          echo "Version: ${{ github.sha }}" >> dist/build-info.txt
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-${{ github.run_number }}
+          path: dist/
+          retention-days: 30
+          if-no-files-found: error
+  
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: website-${{ github.run_number }}
+          path: ./site
+      
+      - name: Verify deployment files
+        run: |
+          echo "Files to deploy:"
+          find ./site -type f
+          echo "Build info:"
+          cat ./site/build-info.txt
+      
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production..."
+          echo "All files verified and ready!"
